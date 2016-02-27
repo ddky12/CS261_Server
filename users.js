@@ -2,7 +2,7 @@ var mongo = require('./db');
 
 function getUser(req, res) {
   console.log("trying to get...");
-	var id = req.query.id || req.body.id;
+	var id = req.body.id || req.query.id;
 
   mongo.connect({}, function(err, db){
     if(err) return next(err);
@@ -30,7 +30,7 @@ function getUser(req, res) {
 
 function findUser(req, res, next) {
   console.log("trying to find...");
-  var username = req.query.username || req.body.username;
+  var username = req.body.username || req.query.username;
 
   mongo.connect({}, function(err, db){
     if(err) return next(err);
@@ -59,8 +59,8 @@ function findUser(req, res, next) {
 
 function createUser(req, res, next) {
   console.log("trying to create...");
-  var username = req.query.username || req.body.username;
-  var password = req.query.password || req.body.password;
+  var username = req.body.username || req.query.username;
+  var password = req.body.password || req.query.password;
 
   mongo.connect({}, function(err, db){
     if(err) return next(err);
@@ -110,8 +110,8 @@ function createUser(req, res, next) {
 
 function loginUser(req, res, next) {
   console.log("trying to login...");
-	var username = req.query.username || req.body.username;
-	var password = req.query.password || req.body.password;
+	var username = req.body.username || req.query.username;
+	var password = req.body.password || req.query.password;
 
 
   var crypto = require('crypto');
@@ -173,10 +173,10 @@ function loginUser(req, res, next) {
 }
 
 module.exports.register = function(app, root) {
-  console.log("register");
+  console.log("register user...");
+  
 	app.post(root + 'login', loginUser);
   app.post(root + ':id/get', getUser);
-
   app.post(root + 'create', createUser);
   app.post(root + 'find/:username', findUser); 
 }
