@@ -82,27 +82,28 @@ function createUser(req, res, next) {
         }
         res.send(JSON.stringify(response));
       }
-    });
+      else{
+        var user = {
+          username: username,
+          password: password
+        };
 
-    var user = {
-       username: username,
-       password: password
-    };
+        console.log("3333 ---- trying to insert...");
+        users.insert(user, function(err, result){
+          if(err) return next(err);
+          var id = user._id;
+          console.log(id);
 
-    console.log("3333 ---- trying to insert...");
-    users.insert(user, function(err, result){
-      if(err) return next(err);
-      var id = user._id;
-      console.log(id);
-
-      response = {
-        status: 'success',
-        data: {
-          id: id,
-          username: username
-        }
-      };
-      res.send(JSON.stringify(response));
+          response = {
+            status: 'success',
+            data: {
+              id: id,
+              username: username
+            }
+          };
+          res.send(JSON.stringify(response));
+        });
+      }
     });
   });
 }
