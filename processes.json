@@ -1,0 +1,24 @@
+{
+  'apps': [ {
+    'name'        : 'cs261api',
+    'script'      : 'app.js',
+    'args'        : [],
+    'watch'       : true,
+    'node_args'   : [],
+    'out_file'    : '/var/log/node/cs261api-stdout.log',
+    'error_file'  : '/var/log/node/cs261api-stderr.log',
+    'cwd'         : '/var/node/cs261api',
+    'env'         : {
+        
+      },
+    'env_production': {
+        'NODE_ENV': 'production',
+        'PORT': 7000
+      },
+    'env_dev'       : {
+        'NODE_ENV': 'dev',
+        'PORT': 7777
+      }
+    }
+  ]
+}

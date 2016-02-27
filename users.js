@@ -44,8 +44,11 @@ function findUser(req, res, next) {
       var doc = docs[0];
       if(doc) { // found matching result
         var response = {
-          id: doc._id,
-          username: doc.username
+          status: 'succes',
+          data : {
+            id: doc._id,
+            username: doc.username
+          }
         };
 
         res.send(JSON.stringify(response));
@@ -64,7 +67,6 @@ function createUser(req, res, next) {
     console.log("1111 ---- trying to create... " + username);
     
     var users = db.collection('users');
-
     var findResult = users.find({ username: username });
     findResult.toArray(function(err, docs){
       if(err) return next(err);
@@ -72,7 +74,13 @@ function createUser(req, res, next) {
       var doc = docs[0];
       if(doc) { // found duplicate
         console.log("2222 ---- duplicate found...");
-        res.send(JSON.stringify({status: 'fail'}));
+        response = {
+          status: 'fail',
+          reason: {
+            "username": "Already taken"
+          }
+        }
+        res.send(JSON.stringify(response));
       }
     });
 
@@ -86,7 +94,15 @@ function createUser(req, res, next) {
       if(err) return next(err);
       var id = user._id;
       console.log(id);
-      res.send(JSON.stringify({status: 'success', id: id}));
+
+      response = {
+        status: 'success',
+        data: {
+          id: id,
+          username: username
+        }
+      };
+      res.send(JSON.stringify(response));
     });
   });
 }
@@ -127,13 +143,25 @@ function loginUser(req, res, next) {
           t = hex.substr(40);
 
           var response = {
-            id: doc._id,
-            session: s,
-            token: t
-          }
+            status: 'success',
+            data: {
+              id: doc._id,
+              session: s,
+              token: t
+            }
+          };
           
           res.send(JSON.stringify(response));
         });
+      } else {
+        var response = {
+          status: 'fail',
+          data: {
+            reason: "Username/password mismatch"
+          }
+        };
+
+        res.send(JSON.stringify(response));
       }
     });
 
@@ -145,9 +173,9 @@ function loginUser(req, res, next) {
 
 module.exports.register = function(app, root) {
   console.log("register");
+	app.post(root + 'login', loginUser);
+  app.post(root + ':id/get', getUser);
 
   app.post(root + 'create', createUser);
-	app.post(root + ':id/get', getUser);
-  app.post(root + ':username', findUser);
-	app.post(root + 'login', loginUser);
+  app.post(root + 'find/:username', findUser); 
 }
