@@ -7,7 +7,7 @@ var users = require('./users');
 var headerMiddleware = require('./header');
 var bodyMiddleware = require('body-parser');
 
-var apiRoot = '/';
+var apiRoot = '/api/v1/';
 
 app.use(headerMiddleware());
 app.use(bodyMiddleware.json());
