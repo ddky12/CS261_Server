@@ -1,6 +1,8 @@
 var mongo = require('./db');
 
+// function to get user data with provided id
 function getUser(req, res) {
+  // access input passed with either body or querystring
   console.log("trying to get...");
 	var id = req.body.id || req.query.id;
 
@@ -8,10 +10,9 @@ function getUser(req, res) {
     if(err) return next(err);
 
     var users = db.collection('users');
-
     var ObjectID = require('mongodb').ObjectID;
-    
     var fResult = users.find({ _id: ObjectID(id)});
+        
     fResult.toArray(function(err, docs){
       if(err) return next(err);
 
@@ -178,5 +179,10 @@ module.exports.register = function(app, root) {
 	app.post(root + 'login', loginUser);
   app.post(root + ':id/get', getUser);
   app.post(root + 'create', createUser);
-  app.post(root + 'find/:username', findUser); 
+  app.post(root + 'find/:username', findUser);
+  
+  app.get(root + 'login', loginUser);
+  app.get(root + ':id/get', getUser);
+  app.get(root + 'create', createUser);
+  app.get(root + 'find/:username', findUser);
 }
