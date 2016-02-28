@@ -1,7 +1,8 @@
 var mongo = require('./db');
+var redis = require('./redis');
 
 // function to get user data with provided id
-function getUser(req, res) {
+function getUser(req, res, next) {
   // access input passed with either body or querystring
   console.log("trying to get...");
 	var id = req.body.id || req.query.id;
@@ -75,7 +76,7 @@ function createUser(req, res, next) {
       var doc = docs[0];
       if(doc) { // found duplicate
         console.log("2222 ---- duplicate found...");
-        response = {
+        var response = {
           status: 'fail',
           reason: {
             "username": "Already taken"
@@ -95,7 +96,7 @@ function createUser(req, res, next) {
           var id = user._id;
           console.log(id);
 
-          response = {
+          var response = {
             status: 'success',
             data: {
               id: id,
@@ -153,6 +154,12 @@ function loginUser(req, res, next) {
             }
           };
           
+          // create a session in redis
+          // flush existing login data replace with new one
+          redis.client.set('isAdmin', 'testing', function(err, reply) {
+            console.log(reply);
+          });
+          
           res.send(JSON.stringify(response));
         });
       } else {
@@ -166,11 +173,7 @@ function loginUser(req, res, next) {
         res.send(JSON.stringify(response));
       }
     });
-
   });
-	// TODO Create session
-	// TODO Create Token
-	// TODO Send reponse
 }
 
 module.exports.register = function(app, root) {

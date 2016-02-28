@@ -3,6 +3,17 @@ var MongoClient = require('mongodb').MongoClient;
 //TODO load this from environment
 var url = 'mongodb://localhost:27017/cs261';
 
+var createTestAdmin = function(db, callback) {
+  var collection = db.collection('users');
+  
+  collection.insert(
+    {
+      "username": "TestAdmin",
+      "password": "PixarGoodGhibliBETTER",
+      "isAdmin": true
+    });
+}
+
 var singleton = null;
 module.exports.connect = function(options, callback) {
   if(singleton) {
