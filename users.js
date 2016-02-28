@@ -1,24 +1,29 @@
 var mongo = require('./db');
-var redis = require('./redis');
+var redis = require('redis');
+var redisClient = redis.createClient();
+
+redisClient.on('connect', function () {
+  console.log("connected to redis server..")
+});
 
 // function to get user data with provided id
 function getUser(req, res, next) {
   // access input passed with either body or querystring
-  console.log("trying to get...");
-	var id = req.body.id || req.query.id;
+  console.log("trying to get user...");
+  var id = req.body.id || req.query.id;
 
-  mongo.connect({}, function(err, db){
-    if(err) return next(err);
+  mongo.connect({}, function (err, db) {
+    if (err) return next(err);
 
     var users = db.collection('users');
     var ObjectID = require('mongodb').ObjectID;
-    var fResult = users.find({ _id: ObjectID(id)});
-        
-    fResult.toArray(function(err, docs){
-      if(err) return next(err);
+    var fResult = users.find({ _id: ObjectID(id) });
+
+    fResult.toArray(function (err, docs) {
+      if (err) return next(err);
 
       var doc = docs[0];
-      if(doc) { // found matching result
+      if (doc) { // found matching result
         var response = {
           id: doc._id,
           username: doc.username
@@ -31,23 +36,23 @@ function getUser(req, res, next) {
 }
 
 function findUser(req, res, next) {
-  console.log("trying to find...");
+  console.log("trying to find user...");
   var username = req.body.username || req.query.username;
 
-  mongo.connect({}, function(err, db){
-    if(err) return next(err);
+  mongo.connect({}, function (err, db) {
+    if (err) return next(err);
 
     var users = db.collection('users');
-    
-    var fResult = users.find({ username: username});
-    fResult.toArray(function(err, docs){
-      if(err) return next(err);
+
+    var fResult = users.find({ username: username });
+    fResult.toArray(function (err, docs) {
+      if (err) return next(err);
 
       var doc = docs[0];
-      if(doc) { // found matching result
+      if (doc) { // found matching result
         var response = {
           status: 'succes',
-          data : {
+          data: {
             id: doc._id,
             username: doc.username
           }
@@ -60,21 +65,21 @@ function findUser(req, res, next) {
 }
 
 function createUser(req, res, next) {
-  console.log("trying to create...");
+  console.log("trying to create user...");
   var username = req.body.username || req.query.username;
   var password = req.body.password || req.query.password;
 
-  mongo.connect({}, function(err, db){
-    if(err) return next(err);
+  mongo.connect({}, function (err, db) {
+    if (err) return next(err);
     console.log("1111 ---- trying to create... " + username);
-    
+
     var users = db.collection('users');
     var findResult = users.find({ username: username });
-    findResult.toArray(function(err, docs){
-      if(err) return next(err);
+    findResult.toArray(function (err, docs) {
+      if (err) return next(err);
 
       var doc = docs[0];
-      if(doc) { // found duplicate
+      if (doc) { // found duplicate
         console.log("2222 ---- duplicate found...");
         var response = {
           status: 'fail',
@@ -84,15 +89,16 @@ function createUser(req, res, next) {
         }
         res.send(JSON.stringify(response));
       }
-      else{
+      else {
         var user = {
           username: username,
-          password: password
+          password: password,
+          isAdmin: false
         };
 
         console.log("3333 ---- trying to insert...");
-        users.insert(user, function(err, result){
-          if(err) return next(err);
+        users.insert(user, function (err, result) {
+          if (err) return next(err);
           var id = user._id;
           console.log(id);
 
@@ -111,35 +117,36 @@ function createUser(req, res, next) {
 }
 
 function loginUser(req, res, next) {
-  console.log("trying to login...");
-	var username = req.body.username || req.query.username;
-	var password = req.body.password || req.query.password;
+  console.log("trying to login user...");
+  var username = req.body.username || req.query.username;
+  var password = req.body.password || req.query.password;
 
 
   var crypto = require('crypto');
 
-  crypto.randomBytes(40, function(err, buf) {
-    if(err) return next(err);
+  crypto.randomBytes(40, function (err, buf) {
+    if (err) return next(err);
     var s, t;
     var hex = buf.toString('hex');
     s = hex.substr(0, 40);
     t = hex.substr(40);
   });
 
-	// TODO Lookup user & pasword in database
-  mongo.connect({}, function(err, db){
-    if(err) return next(err);
-    
+  // TODO Lookup user & pasword in database
+  mongo.connect({}, function (err, db) {
+    if (err) return next(err);
+
     var users = db.collection('users');
 
-    var fResult = users.find({username: username, password: password});
-    fResult.toArray(function(err, docs) {
-      if(err) return next(err);
-    
+    var fResult = users.find({ username: username, password: password });
+    fResult.toArray(function (err, docs) {
+      if (err) return next(err);
+
       var doc = docs[0];
-      if(doc) { // there is matching result
-        crypto.randomBytes(40, function(err, buf) {
-          if(err) return next(err);
+      // there is matching result
+      if (doc) {
+        crypto.randomBytes(40, function (err, buf) {
+          if (err) return next(err);
           var s, t;
           var hex = buf.toString('hex');
           s = hex.substr(0, 40);
@@ -156,12 +163,22 @@ function loginUser(req, res, next) {
           
           // create a session in redis
           // flush existing login data replace with new one
-          redis.client.set('isAdmin', 'testing', function(err, reply) {
-            console.log(reply);
+          redisClient.hmset('currUser', {
+            'id': doc._id,
+            'username': doc.username,
+            'isAdmin': doc.isAdmin,
+            'session': s,
+            'token': t
+          }, function (err, object) {
+            console.log("redis object set: " + object);
           });
           
+          // set expire time
+          //redisClient.expire('currUser', 120);
+
           res.send(JSON.stringify(response));
         });
+        // there is a mismatch between username and password
       } else {
         var response = {
           status: 'fail',
@@ -176,16 +193,27 @@ function loginUser(req, res, next) {
   });
 }
 
-module.exports.register = function(app, root) {
-  console.log("register user...");
+function updateUser(req, res, next){
+  console.log("trying to update user data...")
+  var s = req.body._session || req.query._session;
+  var t = req.body._token || req.query._session;
   
-	app.post(root + 'login', loginUser);
+  // check if the session and token are mathcing with current data
+  
+}
+
+module.exports.register = function (app, root) {
+  console.log("register user...");
+
+  app.post(root + 'login', loginUser);
   app.post(root + ':id/get', getUser);
   app.post(root + 'create', createUser);
   app.post(root + 'find/:username', findUser);
-  
+  app.post(root + ':id/update', updateUser);
+
   app.get(root + 'login', loginUser);
   app.get(root + ':id/get', getUser);
   app.get(root + 'create', createUser);
   app.get(root + 'find/:username', findUser);
+  app.get(root + ':id/update', updateUser);
 }
