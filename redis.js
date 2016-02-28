@@ -3,6 +3,4 @@ var redisClient = redis.createClient();
 
 redisClient.on('connect', function() {
   console.log("connected to redis server..")
-})
-
-module.export.client = redisClient;
+});
