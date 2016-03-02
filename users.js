@@ -3,71 +3,113 @@ var redis = require('redis');
 var redisClient = redis.createClient();
 
 redisClient.on('connect', function () {
-  console.log("connected to redis server..")
+  console.log("connected to redis server...users...")
 });
 
 // function to get user data with provided id
 function getUser(req, res, next) {
   // access input passed with either body or querystring
   console.log("trying to get user...");
-  var id = req.body.id || req.query.id;
+  var id = req.body.id || req.query.id || req.params.id;
+  var s = req.body._session || req.query._session;
+  var t = req.body._token || req.query._token;
+  
+  redisClient.exists('currUser', function (err, reply) {
+    // session is found see if it is identical
+    if (reply === 1) {
+      redisClient.hgetall('currUser', function (err, obj) {
+        console.log(obj);
+        
+        // if session and token matches, and is a admin account
+        if (s == obj.session && t == obj.token) {
+          mongo.connect({}, function (err, db) {
+            if (err) return next(err);
 
-  mongo.connect({}, function (err, db) {
-    if (err) return next(err);
+            var users = db.collection('users');
+            var ObjectID = require('mongodb').ObjectID;
+            var fResult = users.find({ _id: ObjectID(id) });
 
-    var users = db.collection('users');
-    var ObjectID = require('mongodb').ObjectID;
-    var fResult = users.find({ _id: ObjectID(id) });
+            fResult.toArray(function (err, docs) {
+              if (err) return next(err);
 
-    fResult.toArray(function (err, docs) {
-      if (err) return next(err);
+              var doc = docs[0];
+              if (doc) { // found matching result
+                var response = {
+                  status: "success",
+                  data: {
+                    "id": doc._id,            
+                    "username": doc.username,
+                    "avatar": doc.avatar
+                  }
+                };
 
-      var doc = docs[0];
-      if (doc) { // found matching result
-        var response = {
-          id: doc._id,
-          username: doc.username
-        };
-
-        res.send(JSON.stringify(response));
-      }
-    });
+                res.send(JSON.stringify(response));
+              }
+            });
+          });
+        }
+      });
+    }
   });
+
+
+  
 }
 
 function findUser(req, res, next) {
   console.log("trying to find user...");
-  var username = req.body.username || req.query.username;
+  var username = req.body.username || req.query.username || req.params.username;
+  var s = req.body._session || req.query._session;
+  var t = req.body._token || req.query._token;
 
-  mongo.connect({}, function (err, db) {
-    if (err) return next(err);
+  redisClient.exists('currUser', function (err, reply) {
+    // session is found see if it is identical
+    if (reply === 1) {
+      redisClient.hgetall('currUser', function (err, obj) {
+        console.log(obj);
+        
+        // if session and token matches, and is a admin account
+        if (s == obj.session && t == obj.token) {
+          mongo.connect({}, function (err, db) {
+            if (err) return next(err);
 
-    var users = db.collection('users');
+            var users = db.collection('users');
 
-    var fResult = users.find({ username: username });
-    fResult.toArray(function (err, docs) {
-      if (err) return next(err);
+            var fResult = users.find({ username: username });
+            fResult.toArray(function (err, docs) {
+              if (err) return next(err);
 
-      var doc = docs[0];
-      if (doc) { // found matching result
-        var response = {
-          status: 'succes',
-          data: {
-            id: doc._id,
-            username: doc.username
-          }
-        };
+              var doc = docs[0];
+              if (doc) { // found matching result
+                var response = {
+                  status: "success",
+                  data: {
+                    id: doc._id,
+                    username: doc.username
+                  }
+                };
 
-        res.send(JSON.stringify(response));
-      }
-    });
+                res.send(JSON.stringify(response));
+              }
+            });
+          });
+        }
+      });
+    }
   });
+      
+  
 }
 
 function createUser(req, res, next) {
   console.log("trying to create user...");
   var username = req.body.username || req.query.username;
   var password = req.body.password || req.query.password;
+  var avatar = req.body.avatar || req.query.avatar;
+  
+  if(avatar == null){
+    avatar = "not-existing";
+  }
 
   mongo.connect({}, function (err, db) {
     if (err) return next(err);
@@ -82,10 +124,10 @@ function createUser(req, res, next) {
       if (doc) { // found duplicate
         console.log("2222 ---- duplicate found...");
         var response = {
-          status: 'fail',
           reason: {
             "username": "Already taken"
-          }
+          },
+          status: "fail"
         }
         res.send(JSON.stringify(response));
       }
@@ -93,6 +135,7 @@ function createUser(req, res, next) {
         var user = {
           username: username,
           password: password,
+          avatar: avatar,
           isAdmin: false
         };
 
@@ -100,10 +143,8 @@ function createUser(req, res, next) {
         users.insert(user, function (err, result) {
           if (err) return next(err);
           var id = user._id;
-          console.log(id);
-
           var response = {
-            status: 'success',
+            status: "success",
             data: {
               id: id,
               username: username
@@ -153,7 +194,7 @@ function loginUser(req, res, next) {
           t = hex.substr(40);
 
           var response = {
-            status: 'success',
+            status: "success",
             data: {
               id: doc._id,
               session: s,
@@ -181,10 +222,8 @@ function loginUser(req, res, next) {
         // there is a mismatch between username and password
       } else {
         var response = {
-          status: 'fail',
-          data: {
-            reason: "Username/password mismatch"
-          }
+          reason: "Username/password mismatch",
+          status: "fail"
         };
 
         res.send(JSON.stringify(response));
@@ -197,9 +236,112 @@ function updateUser(req, res, next){
   console.log("trying to update user data...")
   var s = req.body._session || req.query._session;
   var t = req.body._token || req.query._session;
+  var id = req.body.id || req.query.id || req.params.id;
+  var oldPassword = req.body.oldPassword || req.query.oldPassword;
+  var newPassword = req.body.newPassword || req.query.newPassword;
+  var isAdmin = req.body.isAdmin || req.query.isAdmin;
+  var avatar = req.body.avatar || req.query.avatar;
   
   // check if the session and token are mathcing with current data
-  
+  redisClient.exists('currUser', function (err, reply) {
+    // session is found see if it is identical
+    if (reply === 1) {
+      redisClient.hgetall('currUser', function (err, obj) {
+        console.log(obj);
+        
+        // if session and token matches, and is a admin account
+        if (s == obj.session && t == obj.token) {
+          console.log("checking admin...");
+          
+          // if both of the parameter exists  
+          mongo.connect({}, function (err, db) {
+            if (err) return next(err);
+            var users = db.collection('users');
+            var ObjectID = require('mongodb').ObjectID;
+            var fResult = users.find({ _id: ObjectID(id) });
+            fResult.toArray(function (err, docs) {
+              // compare if the old password is matching current one
+              var doc = docs[0];
+              if(doc){
+                console.log("found matching user...");
+                var isPasswordChanged = false;
+                if(isAdmin){
+                  if (obj.isAdmin == 'true'){
+                    var uIsAdmin = doc.isAdmin;
+                    if(isAdmin) {uIsAdmin = isAdmin;}
+                    users.updateOne(
+                      {username: obj.username},
+                      { $set: { 
+                        "isAdmin": uIsAdmin,
+                        "avatar": uAvatar
+                        }
+                      });
+                  }
+                  else{
+                    //forbidden
+                    var response_admin = {
+                      status: "fail",
+                      reason: {
+                        "isAdmin": "Forbidden"
+                      }
+                    };
+                    
+                    res.send(JSON.stringify(response_admin));
+                    return;
+                  }
+                }
+                
+                
+                if(oldPassword && newPassword){
+                  if(oldPassword == doc.password){
+                    users.updateOne(
+                      {username: obj.username},
+                      { $set: { 
+                        "password": newPassword
+                        }
+                      });
+                    isPasswordChanged = true;
+                  }
+                  else{
+                    //forbidden
+                    var response_oldpass = {
+                      status: "fail",
+                      reason: {
+                        "oldPassword": "Forbidden"
+                      }
+                    };
+                    res.send(JSON.stringify(response_oldpass));
+                    return;
+                  }
+                }
+                // setting is admin & avatar
+                
+                var uAvatar = doc.avatar;
+                if(avatar) {uAvatar = avatar;}
+                users.updateOne(
+                  {username: obj.username},
+                  { $set: { 
+                    "avatar": uAvatar
+                    }
+                  });
+                
+                var response_success = {
+                  status: "success",
+                  data:{
+                    isAdmin: isAdmin,
+                    passwordChanged: isPasswordChanged,
+                    avatar: avatar
+                  }
+                }
+                
+                res.send(JSON.stringify(response_success));
+              }
+            });
+          });
+        }
+      });
+    }
+  });
 }
 
 module.exports.register = function (app, root) {
